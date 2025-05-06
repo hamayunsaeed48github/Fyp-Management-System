@@ -1,0 +1,33 @@
+{
+  "name": "fyp-managment-system",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+  },
+  "keywords": [],
+  "author": "Hamayun Saeed",
+  "license": "ISC",
+  "description": "This is a project for final year students to manage their projects and tasks. It is a web application that allows students to create, update, and delete projects and tasks. It also allows students to assign tasks to other students and track the progress of their projects.",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cloudinary": "^2.6.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.14.1",
+    "mongoose-aggregate-paginate-v2": "^1.1.4",
+    "multer": "^1.4.5-lts.2",
+    "nodemailer": "^6.10.1",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.5.3",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  }
+}
