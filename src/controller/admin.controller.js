@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { Admin } from "../model/admin.model.js";
 import { Supervisor } from "../model/supervisor.model.js";
 import { Project } from "../model/project.model.js";
+import { Proposal } from "../model/proposal.model.js";
 
 // Initialize static admin (run this once to create the admin in DB)
 const initializeAdmin = async () => {
@@ -201,6 +202,10 @@ const getAllProjects = asyncHandler(async (req, res) => {
     .populate({
       path: "supervisor",
       select: "name email -_id",
+    })
+    .populate({
+      path: "proposal",
+      select: "description -_id", // select only description
     })
     .select("-__v")
     .sort({ createdAt: -1 });

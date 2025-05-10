@@ -6,41 +6,35 @@ import { Student } from "../model/student.model.js";
 import { Project } from "../model/project.model.js";
 import { Proposal } from "../model/proposal.model.js";
 
+// Authentication Controllers
 const supervisorLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  // Validation
   if (!email || !password) {
     throw new ApiError(400, "Email and password are required");
   }
 
-  // Check if supervisor exists
   const supervisor = await Supervisor.findOne({ email });
   if (!supervisor) {
     throw new ApiError(404, "Supervisor not found. Please contact admin");
   }
 
-  // Verify password
   const isPasswordValid = await supervisor.isPasswordCorrect(password);
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid credentials");
   }
 
-  // Generate tokens
   const accessToken = supervisor.generateAccessToken();
   const refreshToken = supervisor.generateRefreshToken();
 
-  // Save refresh token to database
   supervisor.refreshToken = refreshToken;
   await supervisor.save();
 
-  // Secure cookie options
   const options = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
   };
 
-  // Return response
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
@@ -63,16 +57,33 @@ const supervisorLogin = asyncHandler(async (req, res) => {
     );
 });
 
-// Add Student (Supervisor Only)
+const supervisorLogout = asyncHandler(async (req, res) => {
+  await Supervisor.findByIdAndUpdate(
+    req.user._id,
+    { $unset: { refreshToken: 1 } },
+    { new: true }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+  };
+
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "Supervisor logged out successfully"));
+});
+
+// Student Management Controllers
 const addStudent = asyncHandler(async (req, res) => {
   const { name, email, password, rollNumber } = req.body;
 
-  // Validation
   if (!name || !email || !password || !rollNumber) {
     throw new ApiError(400, "All fields are required");
   }
 
-  // Check if student already exists
   const existingStudent = await Student.findOne({
     $or: [{ email }, { rollNumber }],
   });
@@ -84,13 +95,12 @@ const addStudent = asyncHandler(async (req, res) => {
     );
   }
 
-  // Create student
   const student = await Student.create({
     name,
     email,
     password,
     rollNumber,
-    addedBy: req.user._id, // Supervisor who added this student
+    addedBy: req.user._id,
   });
 
   return res.status(201).json(
@@ -107,7 +117,6 @@ const addStudent = asyncHandler(async (req, res) => {
   );
 });
 
-// Get All Students (Supervisor Only)
 const getAllStudents = asyncHandler(async (req, res) => {
   const students = await Student.find({ addedBy: req.user._id })
     .select("-password -refreshToken -__v")
@@ -118,24 +127,22 @@ const getAllStudents = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, students, "Students retrieved successfully"));
 });
 
-// Update Student (Supervisor Only)
 const updateStudent = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, email, rollNumber, password } = req.body;
+  const updates = Object.keys(req.body).reduce((acc, key) => {
+    if (["name", "email", "rollNumber", "password"].includes(key)) {
+      acc[key] = req.body[key];
+    }
+    return acc;
+  }, {});
+
+  if (Object.keys(updates).length === 0) {
+    throw new ApiError(400, "No valid fields provided for update");
+  }
 
   const student = await Student.findOneAndUpdate(
-    {
-      _id: id,
-      addedBy: req.user._id,
-    },
-    {
-      $set: {
-        ...(name && { name }),
-        ...(email && { email }),
-        ...(rollNumber && { rollNumber }),
-        ...(password && { password }),
-      },
-    },
+    { _id: id, addedBy: req.user._id },
+    { $set: updates },
     { new: true, runValidators: true }
   ).select("-password -refreshToken -__v");
 
@@ -148,7 +155,6 @@ const updateStudent = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, student, "Student updated successfully"));
 });
 
-// Delete Student (Supervisor Only)
 const deleteStudent = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -166,234 +172,66 @@ const deleteStudent = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Student deleted successfully"));
 });
 
-// Get Pending Projects (Supervisor)
-const getPendingProjects = asyncHandler(async (req, res) => {
-  const projects = await Project.find({
-    supervisor: req.user._id,
-    status: "pending",
-  })
-    .populate({
-      path: "submittedBy",
-      select: "name email rollNumber -_id",
-    })
-    .select("-__v -supervisor");
+// Consolidated Project/Proposal Controllers
+const getItemsByStatus = asyncHandler(async (req, res) => {
+  const { type } = req.params;
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, projects, "Pending projects retrieved"));
-});
-
-// Approve Project (Supervisor)
-const approveProject = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
-
-  const project = await Project.findOneAndUpdate(
-    {
-      _id: projectId,
-      supervisor: req.user._id,
-      status: "pending",
-    },
-    {
-      status: "approved",
-    },
-    { new: true }
-  ).select("-__v");
-
-  if (!project) {
-    throw new ApiError(404, "Project not found or already processed");
+  if (!["project", "proposal"].includes(type)) {
+    throw new ApiError(400, "Invalid type specified");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, project, "Project approved successfully"));
-});
-
-// Reject Project (Supervisor)
-const rejectProject = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
-
-  const project = await Project.findOneAndUpdate(
-    {
-      _id: projectId,
-      supervisor: req.user._id,
-      status: "pending",
-    },
-    {
-      status: "rejected",
-    },
-    { new: true }
-  ).select("-__v");
-
-  if (!project) {
-    throw new ApiError(404, "Project not found or already processed");
-  }
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, project, "Project rejected successfully"));
-});
-
-// Get Approved Projects (Supervisor)
-const getApprovedProjects = asyncHandler(async (req, res) => {
-  const projects = await Project.find({
+  const Model = type === "project" ? Project : Proposal;
+  const items = await Model.find({
     supervisor: req.user._id,
-    status: "approved",
   })
-    .populate("submittedBy", "name rollNumber -_id")
-    .select("-__v -supervisor");
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, projects, "Approved projects retrieved"));
-});
-
-// Get Rejected Projects (Supervisor)
-const getRejectedProjects = asyncHandler(async (req, res) => {
-  const projects = await Project.find({
-    supervisor: req.user._id,
-    status: "rejected",
-  })
-    .populate("submittedBy", "name email -_id")
-    .select("-__v -supervisor");
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, projects, "Rejected projects retrieved"));
-});
-
-// Proposal Management (Same pattern as projects)
-const getPendingProposals = asyncHandler(async (req, res) => {
-  const proposals = await Proposal.find({
-    supervisor: req.user._id,
-    status: "pending",
-  })
-    .populate("submittedBy", "name rollNumber -_id")
-    .select("-__v -supervisor");
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, proposals, "Pending proposals retrieved"));
-});
-
-const approveProposal = asyncHandler(async (req, res) => {
-  const { proposalId } = req.params;
-
-  const proposal = await Proposal.findOneAndUpdate(
-    {
-      _id: proposalId,
-      supervisor: req.user._id,
-      status: "pending",
-    },
-    {
-      status: "approved",
-    },
-    { new: true }
-  );
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, proposal, "Proposal approved"));
-});
-
-const rejectProposal = asyncHandler(async (req, res) => {
-  const { proposalId } = req.params;
-
-  const proposal = await Proposal.findOneAndUpdate(
-    {
-      _id: proposalId,
-      supervisor: req.user._id,
-      status: "pending",
-    },
-    {
-      status: "rejected",
-    },
-    { new: true }
-  );
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, proposal, "Proposal rejected"));
-});
-
-// Get Approved Proposals (Supervisor)
-const getApprovedProposals = asyncHandler(async (req, res) => {
-  const proposals = await Proposal.find({
-    supervisor: req.user._id,
-    status: "approved",
-  })
-    .populate({
-      path: "submittedBy",
-      select: "name rollNumber email -_id",
-    })
+    .populate("submittedBy", "name email rollNumber -_id")
     .select("-__v -supervisor")
     .sort({ updatedAt: -1 });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, proposals, "Approved proposals retrieved"));
+    .json(new ApiResponse(200, items, `${type}s retrieved successfully`));
 });
 
-// Get Rejected Proposals (Supervisor)
-const getRejectedProposals = asyncHandler(async (req, res) => {
-  const proposals = await Proposal.find({
-    supervisor: req.user._id,
-    status: "rejected",
-  })
-    .populate({
-      path: "submittedBy",
-      select: "name rollNumber email -_id",
-    })
-    .select("-__v -supervisor")
-    .sort({ updatedAt: -1 });
+const updateItemStatus = asyncHandler(async (req, res) => {
+  const { type, id } = req.params;
+  const { status } = req.body;
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, proposals, "Rejected proposals retrieved"));
-});
+  if (!["project", "proposal"].includes(type)) {
+    throw new ApiError(400, "Invalid type specified");
+  }
 
-// Supervisor Logout
-const supervisorLogout = asyncHandler(async (req, res) => {
-  // Remove refresh token from database
-  await Supervisor.findByIdAndUpdate(
-    req.user._id,
+  if (!["approved", "rejected"].includes(status)) {
+    throw new ApiError(400, "Invalid status specified");
+  }
+
+  const Model = type === "project" ? Project : Proposal;
+  const item = await Model.findOneAndUpdate(
     {
-      $unset: {
-        refreshToken: 1, // Removes the field from document
-      },
+      _id: id,
+      supervisor: req.user._id,
+      status: "pending",
     },
-    {
-      new: true,
-    }
-  );
+    { status },
+    { new: true }
+  ).select("-__v");
 
-  // Clear cookies
-  const options = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-  };
+  if (!item) {
+    throw new ApiError(404, `${type} not found or already processed`);
+  }
 
   return res
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
-    .json(new ApiResponse(200, {}, "Supervisor logged out successfully"));
+    .json(new ApiResponse(200, item, `${type} ${status} successfully`));
 });
 
 export {
   supervisorLogin,
+  supervisorLogout,
   addStudent,
   getAllStudents,
   updateStudent,
   deleteStudent,
-  getPendingProjects,
-  approveProject,
-  rejectProject,
-  getApprovedProjects,
-  getRejectedProjects,
-  getPendingProposals,
-  approveProposal,
-  rejectProposal,
-  getApprovedProposals,
-  getRejectedProposals,
-  supervisorLogout,
+  getItemsByStatus,
+  updateItemStatus,
 };

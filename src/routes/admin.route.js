@@ -11,7 +11,7 @@ import {
   adminLogout,
 } from "../controller/admin.controller.js";
 
-import { verifyAdmin } from "../middleware/auth.middleware.js";
+import { verifyJWT } from "../middleware/auth.middleware.js";
 
 const adminRouter = Router();
 
@@ -28,6 +28,6 @@ adminRouter.route("/get-all-projects").get(getAllProjects);
 
 adminRouter.route("/search-projects").get(searchProjectsByTitle);
 
-adminRouter.route("/admin-logout").post(verifyAdmin, adminLogout);
+adminRouter.route("/admin-logout").post(verifyJWT, adminLogout);
 
 export default adminRouter;

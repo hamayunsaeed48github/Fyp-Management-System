@@ -7,22 +7,20 @@ import {
   getStudentProjects,
   studentLogout,
 } from "../controller/student.controller.js";
-import { verifyStudent } from "../middleware/auth.middleware.js";
+import { verifyJWT } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/multer.middleware.js";
 
 const studentRouter = Router();
 
 studentRouter.route("/login-student").post(studentLogin);
-studentRouter.route("/submit-proposal").post(verifyStudent, submitProposal);
+studentRouter.route("/submit-proposal").post(verifyJWT, submitProposal);
 studentRouter
   .route("/get-student-proposals")
-  .get(verifyStudent, getStudentProposals);
+  .get(verifyJWT, getStudentProposals);
 studentRouter
   .route("/submit-project")
-  .post(verifyStudent, upload.single("file"), submitProject);
-studentRouter
-  .route("/get-student-projects")
-  .get(verifyStudent, getStudentProjects);
+  .post(verifyJWT, upload.single("file"), submitProject);
+studentRouter.route("/get-student-projects").get(verifyJWT, getStudentProjects);
 
-studentRouter.route("/student-logout").post(verifyStudent, studentLogout);
+studentRouter.route("/student-logout").post(verifyJWT, studentLogout);
 export default studentRouter;

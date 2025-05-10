@@ -8,19 +8,11 @@ import { Project } from "../model/project.model.js";
 
 // Student Login
 const studentLogin = asyncHandler(async (req, res) => {
-  const { name, email, password, rollNumber } = req.body;
+  const { email, password } = req.body;
 
   // Validation - Check empty fields
-  if (
-    !email?.trim() ||
-    !password?.trim() ||
-    !name?.trim() ||
-    !rollNumber?.trim()
-  ) {
-    throw new ApiError(
-      400,
-      "FullName,Email and password and RollNumber are required"
-    );
+  if (!email?.trim() || !password?.trim()) {
+    throw new ApiError(400, "Email and password are required");
   }
 
   // Find student by email

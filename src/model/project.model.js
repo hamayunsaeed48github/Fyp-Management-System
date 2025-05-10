@@ -32,6 +32,10 @@ const projectSchema = new Schema(
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
+    proposal: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Proposal",
+    },
   },
   { timestamps: true }
 );

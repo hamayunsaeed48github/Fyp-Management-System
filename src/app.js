@@ -4,9 +4,20 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://fyp-management-system.onrender.com",
+];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
