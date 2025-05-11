@@ -6,7 +6,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://fyp-management-system.onrender.com",
+  "https://fyp-management-system.vercel.app",
 ];
 
 app.use(
