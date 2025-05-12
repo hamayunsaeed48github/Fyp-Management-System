@@ -226,6 +226,34 @@ const updateItemStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, item, `${type} ${status} successfully`));
 });
 
+const getProjectById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const project = await Project.findById(id).select("-__v");
+
+  if (!project) {
+    throw new ApiError(404, "Project not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, project, "Project fetched successfully"));
+});
+
+const getProposalById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const proposal = await Proposal.findById(id).select("-__v");
+
+  if (!proposal) {
+    throw new ApiError(404, "Proposal not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, proposal, "Proposal fetched successfully"));
+});
+
 export {
   supervisorLogin,
   supervisorLogout,
@@ -235,4 +263,6 @@ export {
   deleteStudent,
   getItemsByStatus,
   updateItemStatus,
+  getProjectById,
+  getProposalById,
 };

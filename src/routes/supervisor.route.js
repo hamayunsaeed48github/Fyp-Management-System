@@ -8,6 +8,8 @@ import {
   getItemsByStatus,
   updateItemStatus,
   supervisorLogout,
+  getProjectById,
+  getProposalById,
 } from "../controller/supervisor.controller.js";
 import { verifyJWT } from "../middleware/auth.middleware.js";
 
@@ -25,5 +27,8 @@ supervisorRouter.route("/logout-supervisor").post(verifyJWT, supervisorLogout);
 supervisorRouter.route("/items/:type").get(verifyJWT, getItemsByStatus);
 
 supervisorRouter.route("/items/:type/:id").patch(verifyJWT, updateItemStatus);
+
+supervisorRouter.get("/project/:id", getProjectById);
+supervisorRouter.get("/proposal/:id", getProposalById);
 
 export default supervisorRouter;
